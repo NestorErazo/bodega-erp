@@ -1,0 +1,542 @@
+// ================================================================
+// BODEGA DE ROPA — ERP/POS — MODELO DE DATOS COMPLETO
+// Base de datos relacional. En producción se apunta DATABASE_URL
+// a la base de datos del hosting (PostgreSQL/MySQL/SQLite según plan).
+// ================================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ---------- MULTIEMPRESA ----------
+
+model Company {
+  id        Int       @id @default(autoincrement())
+  name      String
+  nit       String?
+  address   String?
+  city      String?
+  phone     String?
+  email     String?
+  logo      String?
+  currency  String    @default("COP")
+  active    Boolean   @default(true)
+  settings  Setting[]
+  users     User[]
+  createdAt DateTime  @default(now())
+}
+
+// ---------- USUARIOS, ROLES Y PERMISOS ----------
+
+model User {
+  id          Int      @id @default(autoincrement())
+  name        String
+  email       String   @unique
+  password    String
+  roleId      Int
+  role        Role     @relation(fields: [roleId], references: [id])
+  companyId   Int?
+  company     Company? @relation(fields: [companyId], references: [id])
+  active      Boolean  @default(true)
+  phone       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  auditLogs          AuditLog[] @relation("user_logs")
+  sales              Sale[]
+  purchases          Purchase[]
+  expenses           Expense[]
+  cashRegisters      CashRegister[]
+  cashMovements      CashMovement[]
+  inventoryMovements InventoryMovement[]
+}
+
+model Role {
+  id          Int       @id @default(autoincrement())
+  name        String    @unique
+  description String?
+  permissions Permission[]
+  users       User[]
+}
+
+model Permission {
+  id      Int    @id @default(autoincrement())
+  key     String
+  name    String
+  roleId  Int
+  role    Role   @relation(fields: [roleId], references: [id])
+
+  @@unique([roleId, key])
+}
+
+// ---------- CATÁLOGO BASE ----------
+
+model Category {
+  id            Int      @id @default(autoincrement())
+  name          String   @unique
+  description   String?
+  products      Product[]
+  subcategories Subcategory[]
+}
+
+model Subcategory {
+  id         Int      @id @default(autoincrement())
+  name       String
+  categoryId Int
+  category   Category @relation(fields: [categoryId], references: [id])
+  products   Product[]
+
+  @@unique([name, categoryId])
+}
+
+model Brand {
+  id       Int       @id @default(autoincrement())
+  name     String    @unique
+  products Product[]
+}
+
+model Size {
+  id       Int             @id @default(autoincrement())
+  name     String          @unique
+  products ProductVariant[]
+}
+
+model Color {
+  id       Int             @id @default(autoincrement())
+  name     String          @unique
+  products ProductVariant[]
+}
+
+// ---------- PRODUCTOS Y VARIANTES ----------
+
+model Product {
+  id             Int       @id @default(autoincrement())
+  code           String    @unique
+  barcode        String?
+  sku            String?
+  reference      String?
+  name           String
+  description    String?
+  categoryId     Int
+  category       Category  @relation(fields: [categoryId], references: [id])
+  subcategoryId  Int?
+  subcategory    Subcategory? @relation(fields: [subcategoryId], references: [id])
+  brandId        Int?
+  brand          Brand?    @relation(fields: [brandId], references: [id])
+  supplierId     Int?
+  supplier       Supplier? @relation(fields: [supplierId], references: [id])
+  material       String?
+  gender         String?
+  season         String?
+  image          String?
+  purchasePrice  Float     @default(0)
+  avgCost        Float     @default(0)
+  salePrice      Float     @default(0)
+  wholesalePrice Float     @default(0)
+  promoPrice     Float     @default(0)
+  taxRate        Float     @default(0)
+  stockMin       Int       @default(5)
+  stockMax       Int       @default(100)
+  location       String?
+  active         Boolean   @default(true)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  variants           ProductVariant[]
+  inventoryMovements InventoryMovement[]
+  saleItems          SaleItem[]
+  purchaseItems      PurchaseItem[]
+  returnItems        ReturnItem[]
+}
+
+model ProductVariant {
+  id        Int     @id @default(autoincrement())
+  productId Int
+  product   Product @relation(fields: [productId], references: [id])
+  sizeId    Int?
+  size      Size?   @relation(fields: [sizeId], references: [id])
+  colorId   Int?
+  color     Color?  @relation(fields: [colorId], references: [id])
+  sku       String?
+  barcode   String?
+  stock     Int     @default(0)
+  cost      Float   @default(0)
+  price     Float   @default(0)
+  image     String?
+
+  movements    InventoryMovement[]
+  saleItems    SaleItem[]
+  purchaseItems PurchaseItem[]
+  returnItems  ReturnItem[]
+
+  @@unique([productId, sizeId, colorId])
+}
+
+// ---------- INVENTARIO ----------
+
+model InventoryMovement {
+  id           Int      @id @default(autoincrement())
+  date         DateTime @default(now())
+  userId       Int
+  user         User     @relation(fields: [userId], references: [id])
+  productId    Int
+  product      Product  @relation(fields: [productId], references: [id])
+  variantId    Int?
+  variant      ProductVariant? @relation(fields: [variantId], references: [id])
+  type         String   // ENTRADA, SALIDA, AJUSTE, TRASLADO, DEVOLUCION, CONSUMO
+  quantity     Int
+  cost         Float    @default(0)
+  documentRef  String?
+  reason       String?
+  observations String?
+  createdAt    DateTime @default(now())
+}
+
+// ---------- PROVEEDORES ----------
+
+model Supplier {
+  id            Int      @id @default(autoincrement())
+  name          String
+  nit           String?
+  phone         String?
+  whatsapp      String?
+  email         String?
+  address       String?
+  city          String?
+  contact       String?
+  paymentTerms  String?
+  creditDays    Int      @default(0)
+  active        Boolean  @default(true)
+  createdAt     DateTime @default(now())
+
+  products       Product[]
+  purchases      Purchase[]
+  expenses       Expense[]
+  accountsPayable AccountPayable[]
+}
+
+// ---------- CLIENTES ----------
+
+model Customer {
+  id            Int       @id @default(autoincrement())
+  name          String
+  document      String?
+  phone         String?
+  whatsapp      String?
+  email         String?
+  address       String?
+  city          String?
+  birthDate     DateTime?
+  observations  String?
+  vip           Boolean   @default(false)
+  active        Boolean   @default(true)
+  createdAt     DateTime  @default(now())
+
+  sales                Sale[]
+  accountsReceivable   AccountReceivable[]
+  returns              Return[]
+}
+
+// ---------- VENTAS / POS ----------
+
+model Sale {
+  id           Int       @id @default(autoincrement())
+  number       String    @unique
+  documentType String    @default("FAC") // FAC, COT, PED, NOT
+  date         DateTime  @default(now())
+  userId       Int
+  user         User      @relation(fields: [userId], references: [id])
+  customerId   Int?
+  customer     Customer? @relation(fields: [customerId], references: [id])
+  status       String    @default("vigente") // vigente, anulada, devuelta
+  subtotal     Float
+  discount     Float     @default(0)
+  tax          Float     @default(0)
+  total        Float
+  items        SaleItem[]
+  payments     SalePayment[]
+  returns      Return[]
+}
+
+model SaleItem {
+  id        Int            @id @default(autoincrement())
+  saleId    Int
+  sale      Sale           @relation(fields: [saleId], references: [id])
+  productId Int
+  product   Product        @relation(fields: [productId], references: [id])
+  variantId Int?
+  variant   ProductVariant? @relation(fields: [variantId], references: [id])
+  quantity  Int
+  price     Float
+  discount  Float          @default(0)
+  cost      Float          @default(0)
+  total     Float
+}
+
+model SalePayment {
+  id       Int     @id @default(autoincrement())
+  saleId   Int
+  sale     Sale    @relation(fields: [saleId], references: [id])
+  method   String  // efectivo, transferencia, nequi, bancolombia, daviplata, tarjeta_debito, tarjeta_credito, credito
+  amount   Float
+  cashRegisterId Int?
+  cashRegister   CashRegister? @relation(fields: [cashRegisterId], references: [id])
+}
+
+// ---------- COMPRAS ----------
+
+model Purchase {
+  id          Int            @id @default(autoincrement())
+  number      String         @unique
+  date        DateTime       @default(now())
+  supplierId  Int
+  supplier    Supplier       @relation(fields: [supplierId], references: [id])
+  userId      Int
+  user        User?          @relation(fields: [userId], references: [id])
+  status      String         @default("recibida") // pendiente, recibida, pagada, anulada
+  paymentType String         @default("contado") // contado, credito
+  subtotal    Float
+  discount    Float          @default(0)
+  tax         Float          @default(0)
+  freight     Float          @default(0)
+  total       Float
+  items       PurchaseItem[]
+  accountsPayable AccountPayable?
+}
+
+model PurchaseItem {
+  id         Int            @id @default(autoincrement())
+  purchaseId Int
+  purchase   Purchase       @relation(fields: [purchaseId], references: [id])
+  productId  Int
+  product    Product        @relation(fields: [productId], references: [id])
+  variantId  Int?
+  variant    ProductVariant? @relation(fields: [variantId], references: [id])
+  quantity   Int
+  cost       Float
+  taxRate    Float          @default(0)
+  total      Float
+}
+
+// ---------- DEVOLUCIONES ----------
+
+model Return {
+  id         Int          @id @default(autoincrement())
+  number     String       @unique
+  saleId     Int?
+  sale       Sale?        @relation(fields: [saleId], references: [id])
+  customerId Int?
+  customer   Customer?    @relation(fields: [customerId], references: [id])
+  date       DateTime     @default(now())
+  reason     String?
+  total      Float
+  status     String       @default("registrada")
+  items      ReturnItem[]
+}
+
+model ReturnItem {
+  id        Int            @id @default(autoincrement())
+  returnId  Int
+  return_   Return         @relation(fields: [returnId], references: [id])
+  productId Int
+  product   Product        @relation(fields: [productId], references: [id])
+  variantId Int?
+  variant   ProductVariant? @relation(fields: [variantId], references: [id])
+  quantity  Int
+  price     Float
+  total     Float
+  backToStock Boolean     @default(true)
+}
+
+// ---------- CAJA ----------
+
+model CashRegister {
+  id            Int      @id @default(autoincrement())
+  name          String   @default("Caja principal")
+  status        String   @default("cerrada") // abierta, cerrada
+  openedById    Int?
+  openedBy      User?    @relation(fields: [openedById], references: [id])
+  openingAmount Float    @default(0)
+  openedAt      DateTime?
+  closedAt      DateTime?
+  closingAmount Float?
+  movements     CashMovement[]
+  payments      SalePayment[]
+}
+
+model CashMovement {
+  id             Int          @id @default(autoincrement())
+  cashRegisterId Int
+  cashRegister   CashRegister @relation(fields: [cashRegisterId], references: [id])
+  userId         Int
+  user           User         @relation(fields: [userId], references: [id])
+  date           DateTime     @default(now())
+  type           String       // apertura, ingreso, egreso, retiro, venta, devolucion
+  concept        String?
+  amount         Float
+  method         String       @default("efectivo")
+  documentRef    String?
+}
+
+// ---------- GASTOS ----------
+
+model Expense {
+  id           Int           @id @default(autoincrement())
+  date         DateTime      @default(now())
+  categoryId   Int
+  category     ExpenseCategory @relation(fields: [categoryId], references: [id])
+  description  String?
+  amount       Float
+  method       String        @default("efectivo")
+  supplierId   Int?
+  supplier     Supplier?     @relation(fields: [supplierId], references: [id])
+  document     String?
+  userId       Int
+  user         User?         @relation(fields: [userId], references: [id])
+  companyId    Int?
+  createdAt    DateTime      @default(now())
+}
+
+model ExpenseCategory {
+  id       Int       @id @default(autoincrement())
+  name     String    @unique
+  expenses Expense[]
+}
+
+// ---------- CARTERA (CxC) ----------
+
+model AccountReceivable {
+  id          Int              @id @default(autoincrement())
+  customerId  Int
+  customer    Customer         @relation(fields: [customerId], references: [id])
+  saleId      Int?
+  date        DateTime         @default(now())
+  dueDate     DateTime?
+  amount      Float
+  paid        Float            @default(0)
+  status      String           @default("pendiente") // pendiente, parcial, pagado, vencido
+  payments    AccountReceivablePayment[]
+}
+
+model AccountReceivablePayment {
+  id            Int               @id @default(autoincrement())
+  accountId     Int
+  account       AccountReceivable @relation(fields: [accountId], references: [id])
+  date          DateTime          @default(now())
+  amount        Float
+  method        String            @default("efectivo")
+  cashRegisterId Int?
+  notes         String?
+}
+
+// ---------- CUENTAS POR PAGAR ----------
+
+model AccountPayable {
+  id          Int                @id @default(autoincrement())
+  supplierId  Int
+  supplier    Supplier           @relation(fields: [supplierId], references: [id])
+  purchaseId  Int?               @unique
+  purchase    Purchase?          @relation(fields: [purchaseId], references: [id])
+  date        DateTime           @default(now())
+  dueDate     DateTime?
+  amount      Float
+  paid        Float              @default(0)
+  status      String             @default("pendiente")
+  payments    AccountPayablePayment[]
+}
+
+model AccountPayablePayment {
+  id        Int           @id @default(autoincrement())
+  accountId Int
+  account   AccountPayable @relation(fields: [accountId], references: [id])
+  date      DateTime      @default(now())
+  amount    Float
+  method    String        @default("transferencia")
+  notes     String?
+}
+
+// ---------- BANCOS ----------
+
+model BankAccount {
+  id          Int             @id @default(autoincrement())
+  bank        String
+  account     String
+  type        String          @default("Ahorros")
+  initialBalance Float         @default(0)
+  movements   BankMovement[]
+  companyId   Int?
+}
+
+model BankMovement {
+  id          Int         @id @default(autoincrement())
+  bankAccountId Int
+  bankAccount BankAccount @relation(fields: [bankAccountId], references: [id])
+  date        DateTime    @default(now())
+  type        String      // ingreso, egreso, transferencia, pago, consignacion
+  concept     String?
+  amount      Float       // positivo ingreso, negativo egreso
+  documentRef String?
+  userId      Int?
+}
+
+// ---------- VENDEDORES, COMISIONES Y METAS ----------
+
+model Employee {
+  id         Int       @id @default(autoincrement())
+  name       String
+  document   String?
+  phone      String?
+  commission Float     @default(0) // porcentaje
+  active     Boolean   @default(true)
+  metas      SalesGoal[]
+}
+
+model SalesGoal {
+  id         Int       @id @default(autoincrement())
+  employeeId Int?
+  employee   Employee? @relation(fields: [employeeId], references: [id])
+  period     String    // diaria, semanal, quincenal, mensual, anual
+  amount     Float
+  startDate  DateTime
+  endDate    DateTime?
+  achieved   Float     @default(0)
+}
+
+// ---------- NOTIFICACIONES ----------
+
+model Notification {
+  id      Int       @id @default(autoincrement())
+  type    String
+  message String
+  read    Boolean   @default(false)
+  date    DateTime  @default(now())
+  userId  Int?
+}
+
+// ---------- AUDITORÍA ----------
+
+model AuditLog {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  user      User     @relation("user_logs", fields: [userId], references: [id])
+  date      DateTime @default(now())
+  action    String
+  entity    String
+  entityId  Int?
+  details   String?
+}
+
+// ---------- CONFIGURACIÓN ----------
+
+model Setting {
+  id        Int     @id @default(autoincrement())
+  key       String  @unique
+  value     String
+  companyId Int?
+  company   Company? @relation(fields: [companyId], references: [id])
+}

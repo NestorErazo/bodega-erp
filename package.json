@@ -1,0 +1,12 @@
+{
+  "name": "bodega-ropa",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Sistema ERP/POS administrativo y de ventas para bodega de ropa",
+  "scripts": {
+    "setup": "npm --prefix backend run db:setup",
+    "dev:backend": "npm --prefix backend run dev",
+    "dev:frontend": "npm --prefix frontend run dev",
+    "dev": "node scripts/dev.mjs"
+  }
+}
