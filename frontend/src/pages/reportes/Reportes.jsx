@@ -85,9 +85,9 @@ export default function Reportes() {
           <p className="text-sm text-gray-500">Ventas, rentabilidad, proyecciones y cumplimiento de metas</p>
         </div>
         <div className="flex gap-2">
-          <Button variant="secondary"><Download size={16} /> Excel</Button>
-          <Button variant="secondary"><Printer size={16} /> PDF</Button>
-          <Button variant="secondary"><Printer size={16} /> Imprimir</Button>
+          <Button variant="secondary" onClick={() => window.print()}><Download size={16} /> Excel</Button>
+          <Button variant="secondary" onClick={() => window.print()}><Printer size={16} /> PDF</Button>
+          <Button variant="secondary" onClick={() => window.print()}><Printer size={16} /> Imprimir</Button>
         </div>
       </div>
 

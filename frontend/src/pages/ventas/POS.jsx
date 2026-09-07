@@ -3,6 +3,7 @@ import { Search, Trash2, Minus, Plus, Smartphone, Landmark, CreditCard, HandCoin
 import { api, formatCOP } from '../../api';
 import { Button } from '../../components/ui';
 import { useAuth } from '../../context/AuthContext';
+import { printTicket } from '../../utils/print';
 
 const methods = [
   { id: 'efectivo', label: 'Efectivo', icon: Banknote },
@@ -73,6 +74,41 @@ function VariantPicker({ variant, showTallas, showColores, onSelect }) {
       )}
     </div>
   );
+}
+
+function buildTicketHTML(done, user) {
+  const itemsHTML = done.items.map((i) => `
+    <tr>
+      <td>${i.name}<br/><small>${i.color || 'U'} · ${i.size || 'Única'}</small></td>
+      <td class="right">${i.qty}</td>
+      <td class="right">${formatCOP(i.price * i.qty)}</td>
+    </tr>
+  `).join('');
+
+  const pagosHTML = Object.entries(done.pagos)
+    .filter(([, v]) => Number(v) > 0)
+    .map(([k, v]) => `<p>${k}: ${formatCOP(v)}</p>`)
+    .join('');
+
+  return `
+    <h2>BODEGA DE ROPA</h2>
+    <p class="center">NIT 901.234.567-1</p>
+    <p class="center">Cali, Colombia</p>
+    <div class="line"></div>
+    <p>Comprobante: <b>${done.nro}</b></p>
+    <p>Fecha: ${done.fecha}</p>
+    <p>Vendedor: ${user?.name || ''}</p>
+    <div class="line"></div>
+    <table>
+      <tr><th>Producto</th><th class="right">Cant</th><th class="right">Total</th></tr>
+      ${itemsHTML}
+    </table>
+    <div class="line"></div>
+    <p class="right bold">TOTAL: ${formatCOP(done.total)}</p>
+    <div class="line"></div>
+    ${pagosHTML}
+    <p class="center">¡Gracias por su compra!</p>
+  `;
 }
 
 export default function POS() {
@@ -315,7 +351,7 @@ export default function POS() {
               <p className="mt-3 text-center text-[10px] text-gray-400">Vendedor: {user?.name}</p>
             </div>
             <div className="flex gap-2">
-              <Button variant="secondary" className="flex-1" onClick={() => setDone(null)}><Printer size={16} /> Imprimir</Button>
+              <Button variant="secondary" className="flex-1" onClick={() => { printTicket(`Venta ${done.nro}`, buildTicketHTML(done, user)); }}><Printer size={16} /> Imprimir</Button>
               <Button className="flex-1" onClick={() => setDone(null)}>Nueva venta</Button>
             </div>
           </div>

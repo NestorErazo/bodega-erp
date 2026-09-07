@@ -3,9 +3,43 @@ import { Search, FileText, Eye } from 'lucide-react';
 import { Card, Button, Modal, Table, Select } from '../../components/ui';
 import { useResource, fmt, fmtDate } from '../../hooks/useResource';
 import { mockVentas, mockVentaDetalle } from '../../mockData';
+import { printDocument } from '../../utils/print';
 import Badge from '../../components/Badge';
 
 const estadoColor = (e) => (e === 'FAC' ? 'blue' : e === 'COT' ? 'amber' : e === 'PED' ? 'gray' : 'green');
+
+function buildInvoiceHTML(v) {
+  const items = (Array.isArray(v.items) && v.items.length ? v.items : mockVentaDetalle).map((i) => `
+    <tr>
+      <td>${i.producto}</td>
+      <td>${i.talla || 'U'}</td>
+      <td>${i.color || 'U'}</td>
+      <td class="right">${i.cantidad}</td>
+      <td class="right">${fmt(i.precio)}</td>
+      <td class="right">${i.descuento ? `-${fmt(i.descuento)}` : '—'}</td>
+      <td class="right">${fmt(i.total)}</td>
+    </tr>
+  `).join('');
+
+  return `
+    <h1>BODEGA DE ROPA SAS</h1>
+    <p>NIT: 901.234.567-1 · Cali, Colombia</p>
+    <p>Tel: +57 300 111 2233 · contacto@bodega.com</p>
+    <hr />
+    <h2>${v.tipo === 'FAC' ? 'FACTURA DE VENTA' : 'COMPROBANTE'} ${v.tipo}-${v.id}</h2>
+    <p><b>Fecha:</b> ${fmtDate(v.fecha)}</p>
+    <p><b>Cliente:</b> ${v.cliente || 'Cliente general'}</p>
+    <p><b>Vendedor:</b> ${v.vendedor || ''}</p>
+    <p><b>Método de pago:</b> ${v.metodo || ''}</p>
+    <table>
+      <tr>
+        <th>Producto</th><th>Talla</th><th>Color</th><th class="right">Cant</th><th class="right">Precio</th><th class="right">Desc</th><th class="right">Total</th>
+      </tr>
+      ${items}
+    </table>
+    <p class="right total">TOTAL: ${fmt(v.total)}</p>
+  `;
+}
 
 export default function VentasHistorial() {
   const { data: ventas } = useResource('/sales', mockVentas);
@@ -90,7 +124,7 @@ export default function VentasHistorial() {
               <span className="text-lg font-bold">{fmt(detalle.total)}</span>
             </div>
             <div className="flex justify-end gap-2">
-              <Button variant="secondary"><FileText size={15} /> Reimprimir</Button>
+              <Button variant="secondary" onClick={() => printDocument(`Venta ${detalle.tipo}-${detalle.id}`, buildInvoiceHTML(detalle))}><FileText size={15} /> Reimprimir</Button>
             </div>
           </div>
         )}
