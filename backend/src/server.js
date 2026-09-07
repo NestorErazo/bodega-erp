@@ -32,15 +32,28 @@ const __dirname = path.dirname(__filename);
 
 const app = express();
 
-// CORS restringido en producción
+// CORS configuración
 const allowedOrigins = process.env.FRONTEND_URL
-  ? [process.env.FRONTEND_URL]
+  ? process.env.FRONTEND_URL.split(',').map((o) => o.trim())
   : ['http://localhost:5173'];
 
-app.use(cors({
-  origin: allowedOrigins,
-  credentials: true,
-}));
+app.use(
+  cors({
+    origin: function (origin, callback) {
+      if (!origin) return callback(null, true);
+      if (allowedOrigins.includes(origin)) return callback(null, true);
+      console.log(`[CORS] Origen bloqueado: ${origin}`);
+      return callback(new Error('No permitido por CORS'));
+    },
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+  })
+);
+
+// Manejar preflight OPTIONS para todas las rutas
+app.options('*', cors());
+
 app.use(express.json());
 
 app.get('/api/health', (_req, res) => {
