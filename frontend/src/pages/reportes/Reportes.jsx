@@ -6,6 +6,7 @@ import {
 import { Download, Printer, TrendingUp, Target, CalendarRange } from 'lucide-react';
 import { Card, Button, Select, Table, StatusBar } from '../../components/ui';
 import { api } from '../../api';
+import { fmt } from '../../hooks/useResource';
 import { mockSerieVentas, mockMetodosPago, mockProductosTop, mockRentabilidad, mockMetas } from '../../mockData';
 
 const PIE_COLORS = ['#10b981', '#0ea5e9', '#f43f5e', '#6366f1', '#f59e0b', '#8b5cf6', '#14b8a6'];
